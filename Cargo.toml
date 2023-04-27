@@ -5,4 +5,6 @@ edition = "2021"
 
 [dependencies]
 
-iced = "0.9"
+iced = { version = "0.9", features = ["image"] }
+iced_native = "0.9"
+wasmer = "3.2"

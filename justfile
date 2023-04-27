@@ -1,6 +1,11 @@
-watch:
-  watchexec --log-file whatever.log \
+watch-wast:
+  watchexec \
+    -e wast \
     -c \
-    -i 'target/**' \
-    -e toml,rs \
-    'cargo build'
+    -- \
+    wasmer compile \
+      -o demo.wasb \
+      demo.wast
+
+watch-rust:
+  cargo watch -c -- cargo build
