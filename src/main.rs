@@ -2,7 +2,9 @@ use std::fs::File;
 use std::io::prelude::*;
 
 use iced::widget::image::Handle;
-use iced::widget::{column, container, image, text};
+use iced_native::widget::Image;
+use iced_native::image;
+use iced::widget::{column, container, text};
 use iced::{executor, Application, Command, Element, Length, Settings, Subscription, Theme};
 use wasmer::{imports, Instance, Module, Store};
 
@@ -59,12 +61,13 @@ impl Application for WasmDemoRunner {
 
     fn view(&self) -> Element<Self::Message> {
         match self.get_image() {
-            Ok(img) => {
-                let handle = Handle::from_memory(img);
-                println!("{:?}", &handle.data());
-                let img = image(handle)
-                    .height(256)
-                    .width(256);
+            Ok(_) => {
+                // let handle = Handle::from_memory(img);
+                // let img = image(handle)
+                //     .height(256)
+                //     .width(256);
+                let img = iced_native::widget::Image::<iced_native::image::Handle>::new("ferris.png");
+                //println!("{:?}", &handle.data());
                 let content = column![text("hello"), img, text("meow"),];
                 container(content).center_x().center_y().into()
             }
