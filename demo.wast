@@ -7,7 +7,7 @@
     (memory.fill $mem
         (i32.const 0)
         (i32.const 0xcfdf)
-        (i32.const 0x10000)
+        (i32.const 0x40000)
     )
  )
 

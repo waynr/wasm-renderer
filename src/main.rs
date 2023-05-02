@@ -8,6 +8,10 @@ use wasmer::{imports, Instance, Module, Store};
 struct WasmDemoRunner {
     wasm_store: Store,
     module_instance: Instance,
+
+    width: u32,
+    height: u32,
+    bytes_required: u64,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -36,13 +40,32 @@ impl Application for WasmDemoRunner {
             .exports
             .get_function("tick")
             .expect("retrieving 'tick' function instance from module");
+        let memory = instance
+            .exports
+            .get_memory("image_buffer")
+            .expect("retrieving image buffer");
+        let view = memory.view(&store);
+
+        let width: usize = 256;
+        let height: usize = 256;
+        let bytes_required = width as u64 * height as u64 * 4;
+
+        if view.data_size() < bytes_required {
+            let pages_required = bytes_required / wasmer::WASM_PAGE_SIZE as u64 + 1;
+            memory.grow(&mut store, pages_required as u32).expect("growing image buffer memory");
+        }
+
         let _ = tick
             .call(&mut store, &[])
             .expect("calling 'tick' function instance from module");
+
         (
             Self {
                 wasm_store: store,
                 module_instance: instance,
+                width: width as u32,
+                height: height as u32,
+                bytes_required,
             },
             Command::none(),
         )
@@ -59,10 +82,10 @@ impl Application for WasmDemoRunner {
     fn view(&self) -> Element<Self::Message> {
         match self.get_image() {
             Ok(bs) => {
-                let image_handle = image::Handle::from_pixels(128, 128, bs);
+                let image_handle = image::Handle::from_pixels(self.width, self.height, bs);
                 let img = image::Viewer::new(image_handle)
-                    .width(128)
-                    .height(128);
+                    .width(self.width as f32)
+                    .height(self.height as f32);
                 let content = column![text("hello"), img, text("meow"),];
                 container(content).center_x().center_y().into()
             }
@@ -73,14 +96,18 @@ impl Application for WasmDemoRunner {
 
 impl WasmDemoRunner {
     fn get_image(&self) -> std::result::Result<Vec<u8>, Box<dyn std::error::Error>> {
-        let buf: &mut [u8; 256 * 256] = &mut [0; 256 * 256];
+        let mut buf: Vec<u8> = vec![0; self.bytes_required as usize];
+        //let buf: &mut [u8; 256*256*4] = &mut [0; 256*256*4];
         let view = self
             .module_instance
             .exports
             .get_memory("image_buffer")?
             .view(&self.wasm_store);
-        view.read(0, buf)?;
-        Ok(buf.to_vec())
+        view.read(0, buf.as_mut_slice())?;
+        Ok(buf)
+        //Ok(view.copy_to_vec()?)
+
+        //Ok(buf.to_vec())
     }
 }
 
