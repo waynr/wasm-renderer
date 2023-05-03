@@ -6,9 +6,11 @@ use std::ptr::NonNull;
 use std::sync::atomic;
 use std::sync::atomic::Ordering;
 use std::sync::Mutex;
+use std::time::{Duration, Instant};
 
+use iced::time;
 use iced::widget::{column, container, image, text};
-use iced::{executor, Application, Command, Element, Settings, Theme};
+use iced::{executor, Application, Command, Element, Settings, Subscription, Theme};
 use wasmer::{imports, Instance, MemoryView, Module, Store};
 
 struct WasmDemoRunner {
@@ -20,6 +22,14 @@ struct WasmDemoRunner {
     bytes_required: u64,
 
     frame_manager: FrameManager,
+
+    state: State,
+}
+
+#[derive(Debug)]
+enum State {
+    Idle,
+    Running,
 }
 
 #[derive(Debug)]
@@ -168,7 +178,7 @@ struct InnerFrame {
 
 #[derive(Debug, Clone, Copy)]
 pub enum Message {
-    Tick,
+    Tick(Instant),
 }
 
 impl Application for WasmDemoRunner {
@@ -205,15 +215,15 @@ impl Application for WasmDemoRunner {
                 .expect("growing image buffer memory");
         }
 
-        let mut runner = Self {
+        let runner = Self {
             wasm_store: store,
             module_instance: instance,
             width: width as u32,
             height: height as u32,
             bytes_required,
             frame_manager: FrameManager::new(bytes_required as usize),
+            state: State::Running,
         };
-        runner.tick();
         (runner, Command::none())
     }
 
@@ -223,7 +233,7 @@ impl Application for WasmDemoRunner {
 
     fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
         match message {
-            Message::Tick => {
+            Message::Tick(_) => {
                 self.tick();
                 Command::none()
             }
@@ -243,6 +253,17 @@ impl Application for WasmDemoRunner {
         };
         let c = column![text("hello"), center, text("meow")];
         container(c).center_x().center_y().into()
+    }
+
+    fn subscription(&self) -> Subscription<Self::Message> {
+        match self.state {
+            State::Running => {
+                time::every(Duration::from_millis(10)).map(Message::Tick)
+            },
+            State::Idle => {
+                Subscription::none()
+            },
+        }
     }
 }
 
