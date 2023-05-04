@@ -8,4 +8,9 @@ watch-wast:
       demo.wast
 
 watch-rust:
-  cargo watch -c -- cargo build
+  cargo watch \
+    --ignore "./target.*" \
+    --delay 10 \
+    -c \
+    -- \
+    cargo build
