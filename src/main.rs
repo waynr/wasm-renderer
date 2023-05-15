@@ -6,11 +6,11 @@ use std::ptr::NonNull;
 use std::sync::atomic;
 use std::sync::atomic::Ordering;
 use std::sync::Mutex;
-use std::time::{Duration, Instant};
 
-use iced::time;
-use iced::widget::{column, container, image, text};
-use iced::{executor, Application, Command, Element, Settings, Subscription, Theme};
+use std::thread;
+
+use druid::widget::Painter;
+use druid::{AppLauncher, Color, RenderContext, Widget, WidgetExt, WindowDesc};
 use wasmer::{imports, Instance, MemoryView, Module, Store};
 
 struct WasmDemoRunner {
@@ -176,18 +176,8 @@ struct InnerFrame {
     buf: Vec<u8>,
 }
 
-#[derive(Debug, Clone, Copy)]
-pub enum Message {
-    Tick(Instant),
-}
-
-impl Application for WasmDemoRunner {
-    type Message = Message;
-    type Theme = Theme;
-    type Executor = executor::Default;
-    type Flags = ();
-
-    fn new(_flags: ()) -> (Self, Command<Message>) {
+impl WasmDemoRunner {
+    fn new() -> Self {
         let mut f = File::open("demo.wast").expect("opening wasm file");
         let mut wasm_module = String::new();
         f.read_to_string(&mut wasm_module)
@@ -224,47 +214,39 @@ impl Application for WasmDemoRunner {
             frame_manager: FrameManager::new(bytes_required as usize),
             state: State::Running,
         };
-        (runner, Command::none())
+
+        runner
     }
 
-    fn title(&self) -> String {
-        String::from("WebAssembly Demo Runner")
+    fn run(&mut self) {
     }
 
-    fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
-        match message {
-            Message::Tick(_) => {
-                self.tick();
-                Command::none()
-            }
-        }
-    }
+    // fn title(&self) -> String {
+    //     String::from("WebAssembly Demo Runner")
+    // }
 
-    fn view(&self) -> Element<Self::Message> {
-        let center: Element<Self::Message> = match &self.frame_manager.last_updated {
-            Some(frame) => {
-                let image_handle = image::Handle::from_pixels(self.width, self.height, frame.clone());
-                image::Viewer::new(image_handle)
-                    .width(self.width as f32)
-                    .height(self.height as f32)
-                    .into()
-            }
-            None => text("missing frame!").into(),
-        };
-        let c = column![text("hello"), center, text("meow")];
-        container(c).center_x().center_y().into()
-    }
+    // fn view(&self) -> Element<Self::Message> {
+    //     let center: Element<Self::Message> = match &self.frame_manager.last_updated {
+    //         Some(frame) => {
+    //             let image_handle =
+    //                 image::Handle::from_pixels(self.width, self.height, frame.clone());
+    //             image::Viewer::new(image_handle)
+    //                 .width(self.width as f32)
+    //                 .height(self.height as f32)
+    //                 .into()
+    //         }
+    //         None => text("missing frame!").into(),
+    //     };
+    //     let c = column![text("hello"), center, text("meow")];
+    //     container(c).center_x().center_y().into()
+    // }
 
-    fn subscription(&self) -> Subscription<Self::Message> {
-        match self.state {
-            State::Running => {
-                time::every(Duration::from_millis(10)).map(Message::Tick)
-            },
-            State::Idle => {
-                Subscription::none()
-            },
-        }
-    }
+    // fn subscription(&self) -> Subscription<Self::Message> {
+    //     match self.state {
+    //         State::Running => time::every(Duration::from_millis(10)).map(Message::Tick),
+    //         State::Idle => Subscription::none(),
+    //     }
+    // }
 }
 
 impl WasmDemoRunner {
@@ -292,6 +274,30 @@ impl WasmDemoRunner {
     }
 }
 
-fn main() -> iced::Result {
-    WasmDemoRunner::run(Settings::default())
+fn main() {
+    let window = WindowDesc::new(make_ui()).title("wasm demo runner");
+
+    let launcher = AppLauncher::with_window(window);
+
+    let event_sink =  launcher.get_external_handle();
+
+    let mut wasm_runner = WasmDemoRunner::new();
+
+    thread::spawn(move || wasm_runner.run());
+
+    launcher
+        .log_to_console()
+        .launch(Color::Rgba32(0xff0000))
+        .expect("launch failed");
+}
+
+fn make_ui() -> impl Widget<Color> {
+    Painter::new(|ctx, data, _env| {
+        let rect = ctx.size().to_rounded_rect(5.0);
+        ctx.fill(rect, data);
+    })
+    .fix_width(300.0)
+    .fix_height(300.0)
+    .padding(10.0)
+    .center()
 }
